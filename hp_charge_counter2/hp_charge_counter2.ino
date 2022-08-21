@@ -6,10 +6,9 @@
  *
  */
 
-#include <TinyI2CMaster.h>
-#include <Tiny4kOLED.h>
 #include <EEPROM.h>
-
+#include <Tiny4kOLED.h>
+#include <TinyI2CMaster.h>
 
 // PIN definitions
 const byte PIN_INPUT_BTNS = A2;
@@ -52,17 +51,16 @@ unsigned long lastDebounceTime = 0;
 // SETUP
 // ===============
 void setup() {
-
   // Prepare pin to read buttons as analog input
   pinMode(PIN_INPUT_BTNS, INPUT);
 
   // Cria as opções de menu
-  menu[0] = { F("HP"),            F(""),                  24};
-  menu[1] = { F("Ki"),            F("1 on short, long"),  4};
-  menu[2] = { F("Spiritual Ki"),  F("Long rest"),         4 };
-  menu[3] = { F("Curse Mantra"),  F("Short rest"),        1 };
-  menu[4] = { F("Hit dice"),      F("Long rest (2)"),     3 };
-  menu[5] = { F("Inspiration"),   F(""),                  1 };
+  menu[0] = {F("HP"), F(""), 24};
+  menu[1] = {F("Ki"), F("1 on short, long"), 4};
+  menu[2] = {F("Spiritual Ki"), F("Long rest"), 4};
+  menu[3] = {F("Curse Mantra"), F("Short rest"), 1};
+  menu[4] = {F("Hit dice"), F("Long rest (2)"), 3};
+  menu[5] = {F("Inspiration"), F(""), 1};
 
   // Read saved values from EEPROM
   for (byte i = 0; i < MENU_COUNT; i++) {
@@ -70,7 +68,7 @@ void setup() {
     if (values[i] > menu[i].max)
       values[i] = menu[i].max;
   }
-    
+
   // Initialize OLED
   oled.begin(0, 0, 128, 68, sizeof(tiny4koled_init_128x64r), tiny4koled_init_128x64r);
   oled.enableChargePump();
@@ -89,16 +87,19 @@ void setup() {
 void draw() {
   oled.invertOutput(false);
   byte chrs_valores = 3;
-  if (values[edit_mode ? selected_val : 0] >= 100)  chrs_valores += 2;
-  else if (values[edit_mode ? selected_val : 0] >= 10)  chrs_valores += 1;
-  if (menu[edit_mode ? selected_val : 0].max >= 100)  chrs_valores += 2;
-  else if (menu[edit_mode ? selected_val : 0].max >= 10)  chrs_valores += 1;
-  
+  if (values[edit_mode ? selected_val : 0] >= 100)
+    chrs_valores += 2;
+  else if (values[edit_mode ? selected_val : 0] >= 10)
+    chrs_valores += 1;
+  if (menu[edit_mode ? selected_val : 0].max >= 100)
+    chrs_valores += 2;
+  else if (menu[edit_mode ? selected_val : 0].max >= 10)
+    chrs_valores += 1;
+
   // First two lines
   // When not editing, or is editing the first line, shows name and current/max HP
   // When is editing any other line, shows recover line and current/max value
   if (!edit_mode || selected_val == 0) {
-
     // Name
     oled.invertOutput(edit_mode && selected_val == 0);
     oled.setCursor(0, 0);
@@ -117,20 +118,18 @@ void draw() {
     oled.print(F("/"));
     oled.print(menu[edit_mode ? selected_val : 0].max);
 
-    
     // HP Bar
     oled.setCursor(0, 1);
     oled.startData();
     oled.sendData(0b00111100);
     oled.sendData(0b01000010);
-    oled.repeatData(0b01011010, (values[0] * 124)/ menu[0].max);
-    oled.repeatData(0b01000010, 124 - (values[0] * 124)/ menu[0].max);
+    oled.repeatData(0b01011010, (values[0] * 124) / menu[0].max);
+    oled.repeatData(0b01000010, 124 - (values[0] * 124) / menu[0].max);
     oled.sendData(0b01000010);
     oled.sendData(0b00111100);
     oled.endData();
 
   } else {
-
     // Recover
     oled.invertOutput(false);
     oled.setCursor(0, 0);
@@ -172,7 +171,7 @@ void draw() {
     oled.startData();
     oled.repeatData(0b00000000, VAL_POS - menu[im].label.length() * 6);
     for (byte b = 0; b < menu[im].max; b++) {
-      if (values[im] > b) { 
+      if (values[im] > b) {
         oled.sendData(0b00111100);
         oled.sendData(0b01000010);
         oled.repeatData(0b01011010, 4);
@@ -188,12 +187,10 @@ void draw() {
   }
 }
 
-
 // ===============
 // LOOP - detect button press and idle
 // ===============
 void loop() {
-  
   // how much (ms) to debounce
   int debounceDelay = 40;
 
@@ -214,16 +211,16 @@ void loop() {
   // and LEFT will read ~800
   byte btnRead;
   if (analogValue < 700)
-     btnRead = BTN_NONE;
+    btnRead = BTN_NONE;
   else if (analogValue < 830)
-     btnRead = BTN_LEFT;
+    btnRead = BTN_LEFT;
   else if (analogValue < 900)
-     btnRead = BTN_DOWN;
+    btnRead = BTN_DOWN;
   else if (analogValue < 970)
-     btnRead = BTN_RIGHT;
-  else 
-     btnRead = BTN_UP;
-  
+    btnRead = BTN_RIGHT;
+  else
+    btnRead = BTN_UP;
+
   // if button read is different than last read, update last debounce time to millis
   // This way, we can wait for the button to stabilize for at least debounceDelay
   if (btnRead != lastButtonState)
@@ -235,12 +232,12 @@ void loop() {
   // if it's a button already pressed, will wait at least repeatDelay
   // on fire, will update lastDebounceTime to hold new buttons, repeat button, and idle check
   if (fromLastDebounce > debounceDelay) {
-      buttonState = btnRead;
-      if (buttonState != BTN_NONE)
-        if (buttonState != lastButtonState || fromLastDebounce > repeatDelay) {
-          button_pressed();
-          lastDebounceTime = millis();
-        }
+    buttonState = btnRead;
+    if (buttonState != BTN_NONE)
+      if (buttonState != lastButtonState || fromLastDebounce > repeatDelay) {
+        button_pressed();
+        lastDebounceTime = millis();
+      }
   }
 
   // and then, last button state will be what we have read
@@ -261,43 +258,40 @@ void loop() {
 
 // When a button is pressed
 void button_pressed() {
-
   // If the screen is off, just turn it on
   if (screen_state == false) {
     screen_state = true;
     oled.on();
     draw();
 
-  // if it's not editing, switch to edit mode
+    // if it's not editing, switch to edit mode
   } else if (edit_mode == false) {
     edit_mode = true;
     draw();
 
-  // if it's already editing
+    // if it's already editing
   } else {
-
     // Create a few variables with directions
     bool left = buttonState == BTN_LEFT;
     bool right = buttonState == BTN_RIGHT;
     bool up = buttonState == BTN_UP;
     bool down = buttonState == BTN_DOWN;
 
-    // Either up or down will scroll on the menu    
+    // Either up or down will scroll on the menu
     if (up || down) {
-      
       if (up && selected_val == 0)
         selected_val = MENU_COUNT - 1;
       else if (down && selected_val == MENU_COUNT - 1)
         selected_val = 0;
       else
         selected_val += up ? -1 : +1;
-      
+
       draw();
     }
 
     // Either left or right will update values
     if (left or right) {
-      if (left && values[selected_val] > 0) 
+      if (left && values[selected_val] > 0)
         values[selected_val] = values[selected_val] - 1;
       if (right && values[selected_val] < menu[selected_val].max)
         values[selected_val] = values[selected_val] + 1;
