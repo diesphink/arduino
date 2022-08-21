@@ -1,0 +1,7 @@
+{
+    "board": "ATTinyCore:avr:attinyx5micr",
+    "programmer": "arduino:avrispmkii",
+    "port": "/dev/ttyUSB0",
+    "sketch": "hp_charge_counter2/hp_charge_counter2.ino",
+    "configuration": "LTO=enable,TimerClockSource=default,sketchclock=165pll,bod=disable,millis=enabled,burnmode=upgrade,resetpin=reset"
+}
