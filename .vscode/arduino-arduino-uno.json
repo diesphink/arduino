@@ -1,0 +1,6 @@
+{
+    "board": "arduino:avr:uno",
+    "programmer": "arduino:avrispmkii",
+    "port": "/dev/ttyUSB0",
+    "sketch": "hp_charge_counter2/hp_charge_counter2.ino"
+}
