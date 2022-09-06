@@ -55,9 +55,9 @@ void setup() {
   pinMode(PIN_INPUT_BTNS, INPUT);
 
   // Cria as opções de menu
-  menu[0] = {F("HP"), F(""), 24};
-  menu[1] = {F("Ki"), F("1 on short, long"), 4};
-  menu[2] = {F("Spiritual Ki"), F("Long rest"), 4};
+  menu[0] = {F("HP"), F(""), 30};
+  menu[1] = {F("Ki"), F("1 on short, long"), 5};
+  menu[2] = {F("Ki/2"), F("Long rest"), 2};
   menu[3] = {F("Curse Mantra"), F("Short rest"), 1};
   menu[4] = {F("Hit dice"), F("Long rest (2)"), 3};
   menu[5] = {F("Inspiration"), F(""), 1};
