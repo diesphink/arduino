@@ -36,9 +36,12 @@
  *
  */
 
-#ifdef __AVR__
+#if defined(__AVR__) || defined(ARDUINO_ARCH_RTTHREAD)
 #include <avr/pgmspace.h>
-#elif defined(ESP8266) || defined(ESP32) || defined(ARDUINO_ARCH_RP2040)
+#elif defined(ARDUINO_ARDUINO_NANO33BLE) ||                                    \
+    defined(ARDUINO_ARCH_MBED_RP2040) || defined(ARDUINO_ARCH_RP2040)
+#include <api/deprecated-avr-comp/avr/pgmspace.h>
+#elif defined(ESP8266) || defined(ESP32)
 #include <pgmspace.h>
 #else
 #define pgm_read_byte(addr)                                                    \
@@ -46,7 +49,7 @@
 #endif
 
 #if !defined(__ARM_ARCH) && !defined(ENERGIA) && !defined(ESP8266) &&          \
-    !defined(ESP32) && !defined(__arc__)
+    !defined(ESP32) && !defined(__arc__) && !defined(__RL78__)
 #include <util/delay.h>
 #endif
 
@@ -220,7 +223,7 @@ Adafruit_SSD1306::Adafruit_SSD1306(uint8_t w, uint8_t h, int8_t mosi_pin,
             Display width in pixels
     @param  h
             Display height in pixels
-    @param  spi
+    @param  spi_ptr
             Pointer to an existing SPIClass instance (e.g. &SPI, the
             microcontroller's primary SPI bus).
     @param  dc_pin
@@ -240,11 +243,12 @@ Adafruit_SSD1306::Adafruit_SSD1306(uint8_t w, uint8_t h, int8_t mosi_pin,
     @note   Call the object's begin() function before use -- buffer
             allocation is performed there!
 */
-Adafruit_SSD1306::Adafruit_SSD1306(uint8_t w, uint8_t h, SPIClass *spi,
+Adafruit_SSD1306::Adafruit_SSD1306(uint8_t w, uint8_t h, SPIClass *spi_ptr,
                                    int8_t dc_pin, int8_t rst_pin, int8_t cs_pin,
                                    uint32_t bitrate)
-    : Adafruit_GFX(w, h), spi(spi ? spi : &SPI), wire(NULL), buffer(NULL),
-      mosiPin(-1), clkPin(-1), dcPin(dc_pin), csPin(cs_pin), rstPin(rst_pin) {
+    : Adafruit_GFX(w, h), spi(spi_ptr ? spi_ptr : &SPI), wire(NULL),
+      buffer(NULL), mosiPin(-1), clkPin(-1), dcPin(dc_pin), csPin(cs_pin),
+      rstPin(rst_pin) {
 #ifdef SPI_HAS_TRANSACTION
   spiSettings = SPISettings(bitrate, MSBFIRST, SPI_MODE0);
 #endif
