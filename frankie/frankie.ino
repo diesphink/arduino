@@ -114,6 +114,7 @@ bool network = false;
 void sendMsg(String text) {
   network = true;
   refreshDisplay();
+  Serial.println("Sending message: " + text);
   bot.sendMessage(CHAT_ID, text);
   network = false;
   refreshDisplay();
@@ -127,7 +128,6 @@ void getMsg() {
   int numNewMessages = bot.getUpdates(bot.last_message_received + 1);
 
   while(numNewMessages) {
-    Serial.println("got response");
     handleNewMessages(numNewMessages);
     numNewMessages = bot.getUpdates(bot.last_message_received + 1);
   }
@@ -138,47 +138,36 @@ void getMsg() {
 }
 
 void handleNewMessages(int numNewMessages) {
-  Serial.println("handleNewMessages");
-  Serial.println(String(numNewMessages));
+  Serial.println("Mensagens recebidas");
+  Serial.println(" - Qtd: " + String(numNewMessages));
 
   for (int i=0; i<numNewMessages; i++) {
     // Chat id of the requester
     String chat_id = String(bot.messages[i].chat_id);
     if (chat_id != CHAT_ID){
-      bot.sendMessage(chat_id, "Unauthorized user", "");
+      sendMsg("🚫 Unauthorized user");
       continue;
     }
     
-    // Print the received message
     String text = bot.messages[i].text;
-    Serial.println(text);
-
     String from_name = bot.messages[i].from_name;
 
+    Serial.println(" - Txt: " + text);
+
     if (text == "/start") {
-      String welcome = "Olá, " + from_name + " eu sou o Frankie!\n";
+      String welcome = "👋 Olá, **" + from_name + "** eu sou o **Frankie!**\n";
       welcome += "Estou aqui para te ajudar a lembrar de tomar os seus remédios, para isso você pode usar os comandos abaixo:\n\n";
       welcome += "/1  \n";
       welcome += "/led_off to turn GPIO OFF \n";
       welcome += "/state to request current GPIO state \n";
-      bot.sendMessage(chat_id, welcome, "");
+      sendMsg(welcome);
     }
 
-    if (text == "/led_on") {
-      bot.sendMessage(chat_id, "LED state set to ON", "");
-      
-    }
-    
-    if (text == "/led_off") {
-      bot.sendMessage(chat_id, "LED state set to OFF", "");
-      
-    }
-    
     if (text == "/state") {
-      bot.sendMessage(chat_id, "LED is ON", "");
+      sendMsg("LED is ON");
     }
-    Serial.println(text);
   }
+  Serial.println("");
 }
 
 
@@ -267,9 +256,8 @@ void checkAlert() {
   if (currentStatus == STATUS_LATE) {
     if (lastAlert == 0 || (millis() - lastAlert) > 30 * 60 * 1000) {
       lastAlert = millis();
-      Serial.print("Enviando alerta...");
-      bot.sendMessage(CHAT_ID, "Você deveria ter tomado remédio!", "");
-      Serial.println("pronto.");
+      Serial.println("Sending new alert");
+      sendMsg("⚠️ Você deveria ter tomado remédio!");
     }
   }
 }
@@ -310,6 +298,9 @@ void checkTelegram() {
 void setup()
 {
   Serial.begin(9600);
+  while (!Serial) {
+    ; // wait for serial port to connect. Needed for native USB port only
+  }
 
   // button pin
   pinMode(buttonPin, INPUT);
@@ -350,7 +341,7 @@ void setup()
   setSyncInterval(300);
 
   Serial.println("Sending test");
-  bot.sendMessage(CHAT_ID, "Now is: " + String(hour(now())) + ":" + String(minute(now())));
+  sendMsg("🕓 Oi, acabei de ligar.\n\nMeu horário atual é: " + String(hour(now())) + ":" + String(minute(now())));
 
   refreshDisplay();
 }
@@ -358,6 +349,7 @@ void setup()
 void loop()
 {
   dirty = false;
+
   checkLate();
   checkAlert();
   checkButtonPress();
@@ -365,13 +357,7 @@ void loop()
 
   if (dirty)
     refreshDisplay();
-
 }
-
-
-
-
-
 
 /*-------- NTP code ----------*/
 const int NTP_PACKET_SIZE = 48; // NTP time is in the first 48 bytes of message
