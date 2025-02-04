@@ -6,6 +6,16 @@
 // NTP Sync daqui:
 //  - https://raw.githubusercontent.com/PaulStoffregen/Time/refs/heads/master/examples/TimeNTP_ESP8266WiFi/TimeNTP_ESP8266WiFi.ino
 
+// TODO
+//  - [ ] NTP num arquivo próprio
+//  - [ ] Usar EEPROM para salvar os dados de cfg do horário, usar valores em minutos ao invés do atual
+//  - [ ] Usar o telegram para definir os dados de cfg de horário
+//  - [ ] Aumentar o intervalo de comm com telegram, mas quando tiver interação com telegram, diminuir o intervalo para 5s por ~ 1m
+//  - [ ] Ajustar outras cfgs para serem também parametrizadas/salvas na eeprom (e.g. snooze dos avisos, tempo de checagem do telegram, etc)
+//  - [ ] Ajustar para poder definir e.g. +30 ao invés de um horário
+//  - [ ] Ajustar para a quantidade de remédios ser configurável
+//  - [ ] Se o horário é menor que o alarme, mas já confirmou algum alarme no futuro, então tá atrasado (controle de pós meia noite)
+
 #include <Wire.h>
 #include "SSD1306Wire.h" // and ESP32 OLED Driver for SSD1306 displays by ThingPulse: https://github.com/ThingPulse/esp8266-oled-ssd1306
  
@@ -22,6 +32,12 @@
 #include <TimeLib.h> // Time by miguel Morgolis
 
 #include "images.h"
+
+// =========================
+// SECRETS
+// create secrets.h with the content below
+// =========================
+
 #include "secrets.h"
 
 // const char* ssid = "*****";
@@ -33,38 +49,16 @@
 // message you
 // #define CHAT_ID "***"
 
-// TODO
-//  - [ ] NTP num arquivo próprio
-//  - [ ] Usar EEPROM para salvar os dados de cfg do horário, usar valores em minutos ao invés do atual
-//  - [ ] Usar o telegram para definir os dados de cfg de horário
-//  - [ ] Aumentar o intervalo de comm com telegram, mas quando tiver interação com telegram, diminuir o intervalo para 5s por ~ 1m
-//  - [ ] Ajustar outras cfgs para serem também parametrizadas/salvas na eeprom (e.g. snooze dos avisos, tempo de checagem do telegram, etc)
-//  - [ ] Ajustar para poder definir e.g. +30 ao invés de um horário
-//  - [ ] Ajustar para a quantidade de remédios ser configurável
-
 // =========================
-// NTP
+// TELEGRAM
 // =========================
 
-WiFiUDP ntpUDP;
-unsigned int localPort = 8888;  // local port to listen for UDP packets
-const int timeZone = -3;
-static const char ntpServerName[] = "us.pool.ntp.org";
-
-time_t getNtpTime();
-void digitalClockDisplay();
-void printDigits(int digits);
-void sendNTPpacket(IPAddress &address);
-
-// By default 'pool.ntp.org' is used with 60 seconds update interval and
-// no offset
-// NTPClient timeClient(ntpUDP, "time.google.com");
+WiFiClientSecure client;
 
 #ifdef ESP8266
   X509List cert(TELEGRAM_CERTIFICATE_ROOT);
 #endif
 
-WiFiClientSecure client;
 UniversalTelegramBot bot(BOTtoken, client);
 
 // Checks for new messages every 1 second.
@@ -101,37 +95,36 @@ long debounceDelay = 10;    // the debounce time; increase if the output flicker
 // LÓGICA DO FRANKIE
 // =========================
 
-int alarmHour[] = {2, 3, 5};
-int alarmMinute[] = {0, 30, 47};
-
-long lastAlert = 0;
-long lastCheck = 0;
-int currentAlarm = 0;
-
-time_t currentTime = 0;
-
+// consts
 const int STATUS_INIT = -1;
 const int STATUS_OK = 0;
 const int STATUS_DONE = 1;
 const int STATUS_LATE = 2;
 
-int currentStatus = STATUS_INIT;
-bool network = false;
+// CFGs
+int alarmHour[] = {2, 3, 5};
+int alarmMinute[] = {0, 30, 47};
 
-// Handle what happens when you receive new messages
+// state control
+int currentStatus = STATUS_INIT;  // Status atual
+int currentAlarm = 0;             // Qual o próximo alarme
+time_t currentTime = 0;           // Hora atual
+long lastAlert = 0;               // Momento do último alerta
+
+void show_display(String text1, bool filled);
+void show_display(String text1, String text2, bool filled);
+void show_display(int lines, String text1, String text2, bool filled);
 
 void sendMsg(String text) {
-  network = true;
-  refreshDisplay();
+  show_display("-- rede --", "Mensagem", false);
+
   Serial.println("Sending message: " + text);
   bot.sendMessage(CHAT_ID, text);
-  network = false;
   refreshDisplay();
 }
 
 void getMsg() {
-  network = true;
-  refreshDisplay();
+  show_display("-- rede --", "Checando", false);
 
   Serial.println("Checking telegram for messages");
   int numNewMessages = bot.getUpdates(bot.last_message_received + 1);
@@ -142,10 +135,10 @@ void getMsg() {
   }
   lastTimeBotRan = millis();
 
-  network = false;
   refreshDisplay();
 }
 
+// Handle what happens when you receive new messages
 void handleNewMessages(int numNewMessages) {
   Serial.println("Mensagens recebidas");
   Serial.println(" - Qtd: " + String(numNewMessages));
@@ -179,37 +172,24 @@ void handleNewMessages(int numNewMessages) {
   Serial.println("");
 }
 
-
 void refreshDisplay() {
-  display.clear();
-  display.setTextAlignment(TEXT_ALIGN_CENTER);
-  display.setFont(ArialMT_Plain_10);
-
-  if (network) {
-    display.drawXbm(0, 0, 128, 64, epd_bitmap_mouse);
-    display.drawStringMaxWidth(90, 29, 72, "-- rede --");
-  } else if (currentStatus == STATUS_INIT) {
-    display.drawXbm(0, 0, 128, 64, epd_bitmap_mouse);
-    display.drawStringMaxWidth(90, 29, 72, "...");
+  if (currentStatus == STATUS_INIT) {
+    show_display("Inicializando...", true);
   } else if (currentStatus == STATUS_OK) {
-    display.drawXbm(0, 0, 128, 64, epd_bitmap_mouse);
-    display.drawStringMaxWidth(90, 22, 72, String(currentAlarm + 1) + "º remédio");
-    display.drawStringMaxWidth(90, 36, 72, "até " + String(alarmHour[currentAlarm]) + "h" + (alarmMinute[currentAlarm] > 0 ? String(alarmMinute[currentAlarm]): "") +"!");
+    show_display(
+      String(currentAlarm + 1) + "º remédio", 
+      "até " + String(alarmHour[currentAlarm]) + "h" + (alarmMinute[currentAlarm] > 0 ? String(alarmMinute[currentAlarm]): "") +"!", 
+      false);
   } else if (currentStatus == STATUS_LATE) {
-    display.drawXbm(0, 0, 128, 64, epd_bitmap_mouse_filled);
-    display.setColor(BLACK);
-    display.drawStringMaxWidth(90, 22, 72, "ATRASADA!");
-    display.drawStringMaxWidth(90, 36, 72, "Era até " + String(alarmHour[currentAlarm]) + "h" + (alarmMinute[currentAlarm] > 0 ? String(alarmMinute[currentAlarm]): "") +"!");
+    show_display(
+        "ATRASADA!",
+        "Era até " + String(alarmHour[currentAlarm]) + "h" + (alarmMinute[currentAlarm] > 0 ? String(alarmMinute[currentAlarm]): "") +"!",
+        true);
     display.setColor(WHITE);
   
   } else if (currentStatus == STATUS_DONE) {
-    display.drawXbm(0, 0, 128, 64, epd_bitmap_mouse);
-    display.drawStringMaxWidth(90, 29, 72, "OK!");
+    show_display("OK!", false);
   }
-  for (int i = 0; i < currentAlarm + (currentStatus == STATUS_DONE? 1 : 0); i++) {
-    display.fillRect(62 + i * 23, 5, 6, 6);
-  }
-  display.display();
 }
 
 void updateStatus(int status) {
@@ -220,8 +200,6 @@ void updateStatus(int status) {
 }
 
 void handleButtonPress() {
-  if (currentStatus != STATUS_DONE)
-    lastCheck = millis();
 
   if (currentStatus == STATUS_DONE) {
     currentAlarm = 0;
@@ -317,6 +295,8 @@ void setup()
   // Init display
   display.init();
   display.flipScreenVertically();
+  display.setTextAlignment(TEXT_ALIGN_CENTER);
+  display.setFont(ArialMT_Plain_10);
   refreshDisplay();
 
   #ifdef ESP8266
@@ -341,13 +321,7 @@ void setup()
   Serial.print("IP number assigned by DHCP is ");
   Serial.println(WiFi.localIP());
 
-  Serial.println("Starting UDP");
-  ntpUDP.begin(localPort);
-  Serial.print("Local port: ");
-  Serial.println(ntpUDP.localPort());
-  Serial.println("waiting for sync");
-  setSyncProvider(getNtpTime);
-  setSyncInterval(300);
+  setupNTP();
 
   Serial.println("Sending test");
   sendMsg("🕓 Oi, acabei de ligar.\n\nMeu horário atual é: " + String(hour(now())) + ":" + String(minute(now())));

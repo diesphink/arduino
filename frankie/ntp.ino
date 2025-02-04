@@ -1,6 +1,35 @@
+// =========================
+// NTP
+// =========================
+
+// NTP Sync daqui:
+//  - https://raw.githubusercontent.com/PaulStoffregen/Time/refs/heads/master/examples/TimeNTP_ESP8266WiFi/TimeNTP_ESP8266WiFi.ino
+
+
+WiFiUDP ntpUDP;
+unsigned int localPort = 8888;  // local port to listen for UDP packets
+const int timeZone = -3;
+static const char ntpServerName[] = "us.pool.ntp.org";
+
+time_t getNtpTime();
+void digitalClockDisplay();
+void printDigits(int digits);
+void sendNTPpacket(IPAddress &address);
+
 /*-------- NTP code ----------*/
 const int NTP_PACKET_SIZE = 48; // NTP time is in the first 48 bytes of message
 byte packetBuffer[NTP_PACKET_SIZE]; //buffer to hold incoming & outgoing packets
+
+void setupNTP() {
+  Serial.println("Starting UDP");
+  ntpUDP.begin(localPort);
+  Serial.print("Local port: ");
+  Serial.println(ntpUDP.localPort());
+  Serial.println("waiting for sync");
+  setSyncProvider(getNtpTime);
+  setSyncInterval(300);
+
+}
 
 time_t getNtpTime()
 {
