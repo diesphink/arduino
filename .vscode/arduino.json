@@ -1,7 +1,0 @@
-{
-    "board": "ATTinyCore:avr:attinyx5",
-    "programmer": "arduino:arduinoasisp",
-    "port": "/dev/ttyUSB0",
-    "sketch": "hp_charge_counter2/hp_charge_counter2.ino",
-    "configuration": "LTO=enable,TimerClockSource=default,chip=85,clock=8internal,eesave=aenable,bod=disable,millis=enabled"
-}
