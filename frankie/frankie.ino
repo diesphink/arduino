@@ -33,6 +33,15 @@
 // message you
 // #define CHAT_ID "***"
 
+// TODO
+//  - [ ] NTP num arquivo próprio
+//  - [ ] Usar EEPROM para salvar os dados de cfg do horário, usar valores em minutos ao invés do atual
+//  - [ ] Usar o telegram para definir os dados de cfg de horário
+//  - [ ] Aumentar o intervalo de comm com telegram, mas quando tiver interação com telegram, diminuir o intervalo para 5s por ~ 1m
+//  - [ ] Ajustar outras cfgs para serem também parametrizadas/salvas na eeprom (e.g. snooze dos avisos, tempo de checagem do telegram, etc)
+//  - [ ] Ajustar para poder definir e.g. +30 ao invés de um horário
+//  - [ ] Ajustar para a quantidade de remédios ser configurável
+
 // =========================
 // NTP
 // =========================
