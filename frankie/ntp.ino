@@ -27,7 +27,7 @@ void setupNTP() {
   Serial.println(ntpUDP.localPort());
   Serial.println("waiting for sync");
   setSyncProvider(getNtpTime);
-  setSyncInterval(300);
+  setSyncInterval(3000);
 
 }
 
