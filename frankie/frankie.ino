@@ -204,34 +204,17 @@ void handleNewMessages(int numNewMessages) {
       welcome += "/status para ter ver o status atual  \n";
       welcome += "/btn para agir como se tivesse apertado o botão\n";
       welcome += "/set {alarme} {valor} para definir um alarme, o valor pode ser relativo em minutos (e.g. +30) ou um horário (e.g. 10:30, 8h, 22h15)\n";
+      welcome += "\n";
+      welcome += "Qualquer outro texto recebido indicará pressionamento do botão";
       sendMsg(welcome);
-    }
 
-    if (text == "0" || text == "1" || text == "2") {
-      currentAlarm = text.toInt();
-      checkLate();
-      refreshDisplay();
-    }
-
-    if (text == "3") {
-      currentStatus = STATUS_DONE;
-      refreshDisplay();
-    }
-
-    if (text == "/btn") {
-      handleButtonPress();
-      checkLate();
-      sendMsg(currentStatusText());
-    }
-
-    if (text == "/status") {
+    } else if (text == "/status") {
       String status = currentStatusText() + "\n\n";
       status += genAlarmTable() + "\n";
       status += "Horário atual: " + currentTimeFormatted();
       sendMsg(status);
-    }
 
-    if (text.startsWith("/set")) {
+    } else if (text.startsWith("/set")) {
       int index;
       alarmData alarm = {0, 0};
       text = text.substring(4);
@@ -278,7 +261,16 @@ void handleNewMessages(int numNewMessages) {
         saveAlarms(index);
         sendMsg("✅ Alarme " + String(index + 1) + " definido para " + formatMinutes(alarm.minutes));
       }
+
+    } else {
+      //  also same for if (text == "/btn") {
+      handleButtonPress();
+      checkLate();
+      sendMsg(currentStatusText());
+
     }
+
+
   }
   Serial.println("");
 }
@@ -445,7 +437,8 @@ void saveAlarms(int index) {
 }
 
 void load() {
-  for (int i = 0; i < 2; i++) {
+  EEPROM.get(ADDR_CURRENT, currentAlarm);
+  for (int i = 0; i < 3; i++) {
     EEPROM.get(ADDR_ALARMS + i * SIZE_OF_ALARM, alarms[i]);
   }
 }
