@@ -316,12 +316,16 @@ String leftPad(int number) {
 }
 
 int currentAlarmInMinutes() {
-  alarmData alarm = alarms[currentAlarm];
+  return alarmInMinutes(alarms[currentAlarm]);
 
+}
+
+int alarmInMinutes(alarmData alarm) {
   if (alarm.type == TYPE_ABSOLUTE)
     return alarm.minutes;
-  else
+  else {
     return lastCheck + alarm.minutes;
+  }
 }
 
 String currentAlarmFormatted() {
