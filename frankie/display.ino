@@ -46,7 +46,6 @@ void show_display(int lines, String text1, String text2, bool filled) {
   display.display();
 }
 
-
 void debug_display() {
   display.clear();
   display.setTextAlignment(TEXT_ALIGN_LEFT);

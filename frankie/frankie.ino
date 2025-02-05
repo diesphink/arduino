@@ -1,9 +1,9 @@
-//Programa: Frankie
-//Autor: Diego Pereyra
+//Program: Frankie
+//Author: Diego Pereyra
 
-// Inspirado em: 
+// Inspired by: 
 //  - https://raw.githubusercontent.com/RuiSantosdotme/Random-Nerd-Tutorials/master/Projects/ESP/ESP_Telegram/ESP_Telegram_Control_Outputs.ino
-// NTP Sync daqui:
+// NTP Sync from here:
 //  - https://raw.githubusercontent.com/PaulStoffregen/Time/refs/heads/master/examples/TimeNTP_ESP8266WiFi/TimeNTP_ESP8266WiFi.ino
 
 // TODO
@@ -222,7 +222,7 @@ void handleNewMessages(int numNewMessages) {
     } else if (text == "/status") {
       String status = genStatusText() + "\n\n";
       status += genAlarmTable() + "\n";
-      status += "Horário atual: " + currentTimeFormatted();
+      status += genTimeText();
       sendMsg(status);
 
     } else if (text.startsWith("/set")) {
@@ -311,6 +311,14 @@ String genStatusText() {
     if (currentStatus == STATUS_OK)
         return "⏰ Tomar o " + String(currentAlarm + 1) + "º remédio até " + currentAlarmFormatted();
     return "Status desconhecido!";
+}
+
+String genTimeText() {
+  return "Horário atual: " + currentTimeFormatted();
+}
+
+String genBootupText() {
+  return "ℹ️ Oi, acabei de ligar\n\n" + genAlarmTable() + "\n" + genTimeText();
 }
 
 // =========================
@@ -569,7 +577,7 @@ void setup()
   setupNTP();
   currentTime = now();
 
-  sendMsg("ℹ️ Oi, acabei de ligar\n\n" + genAlarmTable() + "\nHorário atual: " + currentTimeFormatted());
+  sendMsg(genBootupText());
 }
 
 // =========================

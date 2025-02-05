@@ -2,7 +2,7 @@
 // NTP
 // =========================
 
-// NTP Sync daqui:
+// NTP Sync from here:
 //  - https://raw.githubusercontent.com/PaulStoffregen/Time/refs/heads/master/examples/TimeNTP_ESP8266WiFi/TimeNTP_ESP8266WiFi.ino
 
 
