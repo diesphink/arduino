@@ -425,8 +425,8 @@ void checkStatus() {
 
 void checkAlert() {
   if (currentStatus == STATUS_LATE) {
-    if (lastAlert == 0 || (millis() - lastAlert) > 30 * 60 * 1000) {
-      lastAlert = millis();
+    if (lastAlert == 0 || (now() - lastAlert) > 30 * 60) {
+      lastAlert = now();
       Serial.println("Sending new alert");
       sendMsg(currentStatusText());
     }
