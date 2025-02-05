@@ -199,7 +199,7 @@ void handleNewMessages(int numNewMessages) {
     if (text == "/start" || text == "/help") {
       String welcome = "👋 Olá, " + from_name + ", eu sou o Frankie!\n";
       welcome += "Estou aqui para te ajudar a lembrar de tomar os seus remédios, para isso você pode usar os comandos abaixo:\n\n";
-      welcome += "/status para ter ver o status atual  \n";
+      welcome += "/status para ver o status atual  \n";
       welcome += "/btn para agir como se tivesse apertado o botão\n";
       welcome += "/set {alarme} {valor} para definir um alarme, o valor pode ser relativo em minutos (e.g. +30) ou um horário (e.g. 10:30, 8h, 22h15)\n";
       welcome += "\n";
@@ -288,7 +288,6 @@ String genAlarmTable() {
   String status = "";
   for (int i = 0; i <= 2; i++) {
     alarmData alarm = alarms[i];
-    // ⬛🔲✅☑️
     if (currentAlarm > i || currentStatus == STATUS_DONE)
       status += "🔳 ";
     else
@@ -427,8 +426,9 @@ void handleButtonPress() {
 
 void checkStatus() {
   if (currentStatus == STATUS_DONE) {
-    // Checa se estamos antes do primeiro alerta pra zerar, mas dá um tempinho de 5 minutos desde
-    // o check, pra não zerar do nada e parecer que deu erro, deixa o OK! um tempinho
+    // Check wether we are before the first alarm to zero (goes back to OK)
+    // Give a little time (5m) since check, as not to zero out of nowhere and looks like it's an
+    // error, so it leaves the "OK!" for a little while
     if (currentTimeInMinutes() < currentAlarmInMinutes() && currentTimeInMinutes() >= lastCheck + 5) {
       updateStatus(STATUS_OK);
     }
