@@ -378,7 +378,10 @@ void refreshDisplay() {
 }
 
 void updateStatus(int status) {
-  if (currentStatus != status) {
+  if (currentStatus != status)
+    if (currentStatus == STATUS_DONE && status == STATUS_OK) {
+      lastCheck = 0;
+
     currentStatus = status;
     cfg_dirty = true;
     display_dirty = true;
