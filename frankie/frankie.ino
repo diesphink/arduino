@@ -14,7 +14,7 @@
 //  - [ ] Ajustar outras cfgs para serem também parametrizadas/salvas na eeprom (e.g. snooze dos avisos, tempo de checagem do telegram, etc)
 //  - [X] Ajustar para poder definir e.g. +30 ao invés de um horário
 //  - [ ] Ajustar para a quantidade de remédios ser configurável
-//  - [ ] Se o horário é menor que o alarme, mas já confirmou algum alarme no futuro, então tá atrasado (controle de pós meia noite)
+//  - [X] Se o horário é menor que o alarme, mas já confirmou algum alarme no futuro, então tá atrasado (controle de pós meia noite)
 
 #include <Wire.h>
 #include "SSD1306Wire.h" // and ESP32 OLED Driver for SSD1306 displays by ThingPulse: https://github.com/ThingPulse/esp8266-oled-ssd1306
@@ -68,28 +68,27 @@ unsigned long lastTimeBotRan;
 // DISPLAY
 // =========================
 
-//Pinos do NodeMCU
+//NodeMCU display pins
 // SDA => D5
 // SCL => D6
-// Inicializa o display Oled
 SSD1306Wire  display(0x3c, D5, D6);
 bool display_dirty = true;
 bool cfg_dirty = false;
 
 // =========================
-// BOTÃO
+// BUTTON
 // =========================
 
-// pino do botão
+// button PIN
 const int buttonPin = D1;
 
-int buttonState;             // the current reading from the input pin
-int lastButtonState = LOW;   // the previous reading from the input pin
+int buttonState;                  // the current reading from the input pin
+int lastButtonState = LOW;        // the previous reading from the input pin
 
 // the following variables are long's because the time, measured in miliseconds,
 // will quickly become a bigger number than can be stored in an int.
-long lastDebounceTime = 0;  // the last time the output pin was toggled
-long debounceDelay = 10;    // the debounce time; increase if the output flickers
+long lastDebounceTime = 0;        // the last time the output pin was toggled
+long debounceDelay = 10;          // the debounce time; increase if the output flickers
 
 // =========================
 // EEPROM
@@ -102,7 +101,7 @@ const int ADDR_ALARMS = 32;           // 8 bytes pra cada alarme
 const int SIZE_OF_ALARM = 8;
 
 // =========================
-// LÓGICA DO FRANKIE
+// FRANKIE'S LOGIC
 // =========================
 
 bool debug = false;
@@ -144,10 +143,9 @@ int lastCheck = 0;                    // When was the last check made, in minute
 
 time_t currentTime = 0;               // Holds the current time of execution, updated at each loop
 
-// Métodos do display
-void show_display(String text1, bool filled);
-void show_display(String text1, String text2, bool filled);
-void show_display(int lines, String text1, String text2, bool filled);
+// =========================
+// TELEGRAM FUNCTIONS
+// =========================
 
 void sendMsg(String text) {
   show_display("-- rede --", "-> msg", false);
@@ -172,36 +170,20 @@ void getMsg() {
   display_dirty = true;
 }
 
-String genAlarmTable() {
-  String status = "";
-  for (int i = 0; i <= 2; i++) {
-    alarmData alarm = alarms[i];
-    // ⬛🔲✅☑️
-    if (currentAlarm > i || currentStatus == STATUS_DONE)
-      status += "🔳 ";
-    else
-      status += "⬜️ ";
-    if (alarm.type == TYPE_RELATIVE) {
-      status += "+" + String(alarm.minutes);
-      if (currentAlarm == i)
-        status += " (" + currentAlarmFormatted() + ")";
-    } else
-      status += formatMinutes(alarm.minutes);
-    status += "\n";
-  }
-  return status;
-}
-
 // Handle what happens when you receive new messages
 void handleNewMessages(int numNewMessages) {
-  Serial.println("Mensagens recebidas");
+  Serial.println("Messages received");
   Serial.println(" - Qtd: " + String(numNewMessages));
 
   for (int i=0; i<numNewMessages; i++) {
     // Chat id of the requester
     String chat_id = String(bot.messages[i].chat_id);
     if (chat_id != CHAT_ID){
-      sendMsg("🚫 Unauthorized user");
+      show_display("-- rede --", "-> msg", false);
+      String text = "🚫 Usuário não autorizado";
+      Serial.println("Sending message: " + text);
+      bot.sendMessage(chat_id, text);
+      display_dirty = true;
       continue;
     }
     
@@ -222,17 +204,19 @@ void handleNewMessages(int numNewMessages) {
 
     } else if (text == "/debug") {
       debug = !debug;
+
     } else if (text.startsWith("/add")) {
       long delta = text.substring(4).toInt() * 60;
 
       setTime(now() + delta);
       currentTime = now();
       Serial.println("Delta: " + String(delta));
-      Serial.println("Nova data: " + String(year(now())) + "-" + String(month(now())) + "-" + String(day(now())) + " " + currentTimeFormatted());
+      Serial.println("New date: " + String(year(now())) + "-" + String(month(now())) + "-" + String(day(now())) + " " + currentTimeFormatted());
       checkStatus();
       display_dirty = true;
+
     } else if (text == "/status") {
-      String status = currentStatusText() + "\n\n";
+      String status = genStatusText() + "\n\n";
       status += genAlarmTable() + "\n";
       status += "Horário atual: " + currentTimeFormatted();
       sendMsg(status);
@@ -289,16 +273,34 @@ void handleNewMessages(int numNewMessages) {
       //  also same for if (text == "/btn") {
       handleButtonPress();
       checkStatus();
-      sendMsg(currentStatusText());
+      sendMsg(genStatusText());
 
     }
-
-
   }
   Serial.println("");
 }
 
-String currentStatusText() {
+String genAlarmTable() {
+  String status = "";
+  for (int i = 0; i <= 2; i++) {
+    alarmData alarm = alarms[i];
+    // ⬛🔲✅☑️
+    if (currentAlarm > i || currentStatus == STATUS_DONE)
+      status += "🔳 ";
+    else
+      status += "⬜️ ";
+    if (alarm.type == TYPE_RELATIVE) {
+      status += "+" + String(alarm.minutes);
+      if (currentAlarm == i)
+        status += " (" + currentAlarmFormatted() + ")";
+    } else
+      status += formatMinutes(alarm.minutes);
+    status += "\n";
+  }
+  return status;
+}
+
+String genStatusText() {
     if (currentStatus == STATUS_DONE)
       return "✅ Tudo certo!";
     if (currentStatus == STATUS_LATE)
@@ -308,16 +310,23 @@ String currentStatusText() {
     return "Status desconhecido!";
 }
 
-String leftPad(int number) {
-  if (number < 10)
-    return "0" + String(number);
-  else
-    return String(number);
+// =========================
+// TIME RELATED FUNCTIONS
+// =========================
+
+int currentTimeInMinutes() {
+  int minutes = hour(currentTime) * 60 + minute(currentTime);
+  // Se os minutes for menor que a última checagem, soma 24h
+  // Indica que ainda estamos resolvendo pendências ae do dia anterior
+  // Mas quando terminar (DONE), pode voltar a contar normal
+  if (minutes < lastCheck && currentStatus != STATUS_DONE)
+    minutes += 24 * 60;
+  return minutes;
+  
 }
 
 int currentAlarmInMinutes() {
   return alarmInMinutes(alarms[currentAlarm]);
-
 }
 
 int alarmInMinutes(alarmData alarm) {
@@ -332,6 +341,13 @@ String currentAlarmFormatted() {
   return formatMinutes(currentAlarmInMinutes());
 }
 
+String leftPad(int number) {
+  if (number < 10)
+    return "0" + String(number);
+  else
+    return String(number);
+}
+
 String formatMinutes(int minutes) {
   int h = minutes/60;
   int m = minutes - h * 60;
@@ -339,18 +355,6 @@ String formatMinutes(int minutes) {
     h = h % 24;
 
   return leftPad(h) + "h" + leftPad(m);
-}
-
-
-int currentTimeInMinutes() {
-  int minutes = hour(currentTime) * 60 + minute(currentTime);
-  // Se os minutes for menor que a última checagem, soma 24h
-  // Indica que ainda estamos resolvendo pendências ae do dia anterior
-  // Mas quando terminar (DONE), pode voltar a contar normal
-  if (minutes < lastCheck && currentStatus != STATUS_DONE)
-    minutes += 24 * 60;
-  return minutes;
-  
 }
 
 String currentTimeFormatted() {
@@ -361,21 +365,31 @@ String timeFormatted(long time) {
   return leftPad(hour(time)) + "h" + leftPad(minute(time));
 }
 
+// =========================
+// DISPLAY FUNCTIONS
+// =========================
+
 void refreshDisplay() {
   if (currentStatus == STATUS_OK) {
     show_display(
       String(currentAlarm + 1) + "º remédio", 
       "até " + currentAlarmFormatted() +"", 
       false);
+
   } else if (currentStatus == STATUS_LATE) {
     show_display(
         "ATRASADA!!",
         "Era até " + currentAlarmFormatted() +"!",
         true);
+
   } else if (currentStatus == STATUS_DONE) {
     show_display("OK!", false);
   }
 }
+
+// =========================
+// FLOW CONTROL
+// =========================
 
 void updateStatus(int status) {
   if (currentStatus != status) {
@@ -411,7 +425,6 @@ void checkStatus() {
     // Checa se estamos antes do primeiro alerta pra zerar, mas dá um tempinho de 5 minutos desde
     // o check, pra não zerar do nada e parecer que deu erro, deixa o OK! um tempinho
     if (currentTimeInMinutes() < currentAlarmInMinutes() && currentTimeInMinutes() >= lastCheck + 5) {
-      sendMsg("Update de status via checkStatus!");
       updateStatus(STATUS_OK);
     }
   } else {
@@ -423,16 +436,19 @@ void checkStatus() {
   }
 }
 
+// =========================
+// DEBOUNCES (button, telegram, alert)
+// =========================
+
 void checkAlert() {
   if (currentStatus == STATUS_LATE) {
     if (lastAlert == 0 || (now() - lastAlert) > 30 * 60) {
       lastAlert = now();
       Serial.println("Sending new alert");
-      sendMsg(currentStatusText());
+      sendMsg(genStatusText());
     }
   }
 }
-
 
 void checkButtonPress() {
   // read the state of the switch into a local variable
@@ -466,6 +482,10 @@ void checkTelegram() {
     getMsg();
 }
 
+// =========================
+// EEPROM FUNCTIONS
+// =========================
+
 void saveCfg() {
   bool changed = false;
   if (EEPROM.read(ADDR_CURRENT) != currentAlarm) {
@@ -481,8 +501,6 @@ void saveCfg() {
 }
 
 void saveAlarms(int index) {
-  int offset = sizeof(alarms[0]);
-  Serial.println("Size of alarm:" + String(offset));
   EEPROM.put(ADDR_ALARMS + index * SIZE_OF_ALARM, alarms[index]);
   EEPROM.commit();
 }
@@ -494,6 +512,10 @@ void load() {
     EEPROM.get(ADDR_ALARMS + i * SIZE_OF_ALARM, alarms[i]);
   }
 }
+
+// =========================
+// SETUP
+// =========================
 
 void setup()
 {
@@ -514,7 +536,7 @@ void setup()
 
   #ifdef ESP8266
     configTime(0, 0, "pool.ntp.org");      // get UTC time via NTP
-    client.setTrustAnchors(&cert); // Add root certificate for api.telegram.org
+    client.setTrustAnchors(&cert);         // Add root certificate for api.telegram.org
   #endif
 
   EEPROM.begin(512);
@@ -542,6 +564,10 @@ void setup()
 
   sendMsg("ℹ️ Oi, acabei de ligar\n\n" + genAlarmTable() + "\nHorário atual: " + currentTimeFormatted());
 }
+
+// =========================
+// LOOP
+// =========================
 
 void loop()
 {
