@@ -378,10 +378,14 @@ void refreshDisplay() {
 }
 
 void updateStatus(int status) {
-  if (currentStatus != status)
+  if (currentStatus != status) {
     if (currentStatus == STATUS_DONE && status == STATUS_OK) {
       lastCheck = 0;
-
+      currentAlarm = 0;
+    }
+    if (status == STATUS_DONE) {
+      currentAlarm = 0;
+    }
     currentStatus = status;
     cfg_dirty = true;
     display_dirty = true;
@@ -389,18 +393,14 @@ void updateStatus(int status) {
 }
 
 void handleButtonPress() {
-  if (currentStatus != STATUS_DONE)
-    lastCheck = currentTimeInMinutes();
-  else
-    lastCheck = 0;
-
   if (currentStatus == STATUS_DONE) {
-    currentAlarm = 0;
     updateStatus(STATUS_OK);
   } else if (currentAlarm == 2) {
     updateStatus(STATUS_DONE);
+    lastCheck = currentTimeInMinutes();
   } else {
     currentAlarm++;
+    lastCheck = currentTimeInMinutes();
   }
   cfg_dirty = true;
   display_dirty = true;
