@@ -270,7 +270,7 @@ void handleNewMessages(int numNewMessages) {
     } else {
       //  also same for if (text == "/btn") {
       handleButtonPress();
-      checkLate();
+      checkStatus();
       sendMsg(currentStatusText());
 
     }
@@ -374,15 +374,20 @@ void handleButtonPress() {
   display_dirty = true;
 }
 
-void checkLate() {
-  if (currentStatus == STATUS_DONE)
-    return;
-
-  if (currentTimeInMinutes() > currentAlarmInMinutes()) {
-    updateStatus(STATUS_LATE);
+void checkStatus() {
+  if (currentStatus == STATUS_DONE) {
+    // Checa se estamos antes do primeiro alerta pra zerar, mas dá um tempinho de 5 minutos desde
+    // o check, pra não zerar do nada e parecer que deu erro, deixa o OK! um tempinho
+    if (currentTimeInMinutes() < currentAlarmInMinutes() && currentTimeInMinutes() >= lastCheck + 5) {
+      sendMsg("Update de status via checkStatus!");
+      updateStatus(STATUS_OK);
+    }
   } else {
-    updateStatus(STATUS_OK);
-    
+    if (currentTimeInMinutes() >= currentAlarmInMinutes()) {
+      updateStatus(STATUS_LATE);
+    } else {
+      updateStatus(STATUS_OK);   
+    }
   }
 }
 
@@ -509,7 +514,7 @@ void loop()
 {
   currentTime = now();
 
-  checkLate();
+  checkStatus();
   checkAlert();
   checkButtonPress();
   checkTelegram();
