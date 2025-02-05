@@ -343,7 +343,14 @@ String formatMinutes(int minutes) {
 
 
 int currentTimeInMinutes() {
-  return hour(currentTime) * 60 + minute(currentTime);
+  int minutes = hour(currentTime) * 60 + minute(currentTime);
+  // Se os minutes for menor que a última checagem, soma 24h
+  // Indica que ainda estamos resolvendo pendências ae do dia anterior
+  // Mas quando terminar (DONE), pode voltar a contar normal
+  if (minutes < lastCheck && currentStatus != STATUS_DONE)
+    minutes += 24 * 60;
+  return minutes;
+  
 }
 
 String currentTimeFormatted() {
