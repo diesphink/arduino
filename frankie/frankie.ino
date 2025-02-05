@@ -95,8 +95,10 @@ long debounceDelay = 10;    // the debounce time; increase if the output flicker
 // EEPROM
 // =========================
 
-const int ADDR_CURRENT = 8;
-const int ADDR_ALARMS = 32;
+const int ADDR_CURRENT = 8;           // 4 bytes pro currentAlarm
+const int ADDR_LASTHECK = 12;         // 4 bytes pro lastCheck
+const int ADDR_ALARMS = 32;           // 8 bytes pra cada alarme
+
 const int SIZE_OF_ALARM = 8;
 
 // =========================
