@@ -222,6 +222,15 @@ void handleNewMessages(int numNewMessages) {
 
     } else if (text == "/debug") {
       debug = !debug;
+    } else if (text.startsWith("/add")) {
+      long delta = text.substring(4).toInt() * 60;
+
+      setTime(now() + delta);
+      currentTime = now();
+      Serial.println("Delta: " + String(delta));
+      Serial.println("Nova data: " + String(year(now())) + "-" + String(month(now())) + "-" + String(day(now())) + " " + currentTimeFormatted());
+      checkStatus();
+      display_dirty = true;
     } else if (text == "/status") {
       String status = currentStatusText() + "\n\n";
       status += genAlarmTable() + "\n";
