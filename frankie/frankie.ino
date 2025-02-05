@@ -73,7 +73,8 @@ unsigned long lastTimeBotRan;
 // SCL => D6
 // Inicializa o display Oled
 SSD1306Wire  display(0x3c, D5, D6);
-bool dirty = true;
+bool display_dirty = true;
+bool cfg_dirty = false;
 
 // =========================
 // BOTÃO
@@ -144,7 +145,7 @@ void sendMsg(String text) {
 
   Serial.println("Sending message: " + text);
   bot.sendMessage(CHAT_ID, text);
-  dirty = true;
+  display_dirty = true;
 }
 
 void getMsg() {
@@ -159,7 +160,7 @@ void getMsg() {
   }
   lastTimeBotRan = now();
 
-  dirty = true;
+  display_dirty = true;
 }
 
 String genAlarmTable() {
@@ -350,7 +351,8 @@ void refreshDisplay() {
 void updateStatus(int status) {
   if (currentStatus != status) {
     currentStatus = status;
-    dirty = true;
+    cfg_dirty = true;
+    display_dirty = true;
   }
 }
 
@@ -363,15 +365,13 @@ void handleButtonPress() {
   if (currentStatus == STATUS_DONE) {
     currentAlarm = 0;
     updateStatus(STATUS_OK);
-    saveCurrentAlarm();
   } else if (currentAlarm == 2) {
     updateStatus(STATUS_DONE);
   } else {
     currentAlarm++;
-    saveCurrentAlarm();
   }
-
-  dirty = true;
+  cfg_dirty = true;
+  display_dirty = true;
 }
 
 void checkLate() {
@@ -429,11 +429,18 @@ void checkTelegram() {
     getMsg();
 }
 
-void saveCurrentAlarm() {
+void saveCfg() {
+  bool changed = false;
   if (EEPROM.read(ADDR_CURRENT) != currentAlarm) {
     EEPROM.put(ADDR_CURRENT, currentAlarm);
-    EEPROM.commit();
+    changed = true;
   }
+  if (EEPROM.read(ADDR_LASTHECK) != lastCheck) {
+    EEPROM.put(ADDR_LASTHECK, lastCheck);
+    changed = true;
+  }
+  if (changed)
+    EEPROM.commit();
 }
 
 void saveAlarms(int index) {
@@ -507,7 +514,10 @@ void loop()
   checkButtonPress();
   checkTelegram();
 
-  if (dirty)
+  if (display_dirty)
     refreshDisplay();
-  dirty = false;
+  display_dirty = false;
+
+  if (cfg_dirty)
+    saveCfg();
 }
