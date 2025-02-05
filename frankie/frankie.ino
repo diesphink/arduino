@@ -489,6 +489,7 @@ void saveAlarms(int index) {
 
 void load() {
   EEPROM.get(ADDR_CURRENT, currentAlarm);
+  EEPROM.get(ADDR_LASTHECK, lastCheck);
   for (int i = 0; i < 3; i++) {
     EEPROM.get(ADDR_ALARMS + i * SIZE_OF_ALARM, alarms[i]);
   }
