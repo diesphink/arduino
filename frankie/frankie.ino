@@ -61,7 +61,7 @@ WiFiClientSecure client;
 
 UniversalTelegramBot bot(BOTtoken, client);
 
-int botRequestDelay = 5 * 1000;
+int botRequestDelay = 5;
 unsigned long lastTimeBotRan;
 
 // =========================
@@ -157,7 +157,7 @@ void getMsg() {
     handleNewMessages(numNewMessages);
     numNewMessages = bot.getUpdates(bot.last_message_received + 1);
   }
-  lastTimeBotRan = millis();
+  lastTimeBotRan = now();
 
   dirty = true;
 }
@@ -425,7 +425,7 @@ void checkButtonPress() {
 }
 
 void checkTelegram() {
-  if (millis() > lastTimeBotRan + botRequestDelay)
+  if (now() > lastTimeBotRan + botRequestDelay)
     getMsg();
 }
 
