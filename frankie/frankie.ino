@@ -10,7 +10,7 @@
 //  - [X] NTP num arquivo próprio
 //  - [X] Usar EEPROM para salvar os dados de cfg do horário, usar valores em minutos ao invés do atual
 //  - [X] Usar o telegram para definir os dados de cfg de horário
-//  - [ ] Aumentar o intervalo de comm com telegram, mas quando tiver interação com telegram, diminuir o intervalo para 5s por ~ 1m
+//  - [X] Aumentar o intervalo de comm com telegram, mas quando tiver interação com telegram, diminuir o intervalo para 5s por ~ 1m
 //  - [ ] Ajustar outras cfgs para serem também parametrizadas/salvas na eeprom (e.g. snooze dos avisos, tempo de checagem do telegram, etc)
 //  - [X] Ajustar para poder definir e.g. +30 ao invés de um horário
 //  - [ ] Ajustar para a quantidade de remédios ser configurável
@@ -61,8 +61,10 @@ WiFiClientSecure client;
 
 UniversalTelegramBot bot(BOTtoken, client);
 
-int botRequestDelay = 5;
+int botRequestDelayFast = 5;
+int botRequestDelaySlow = 60;
 unsigned long lastTimeBotRan;
+unsigned long fastCheckUntil;
 
 // =========================
 // DISPLAY
@@ -148,6 +150,7 @@ time_t currentTime = 0;               // Holds the current time of execution, up
 // =========================
 
 void sendMsg(String text) {
+  fastCheckUntil = currentTime + botRequestDelaySlow;
   show_display("-- rede --", "-> msg", false);
 
   Serial.println("Sending message: " + text);
@@ -172,6 +175,7 @@ void getMsg() {
 
 // Handle what happens when you receive new messages
 void handleNewMessages(int numNewMessages) {
+  fastCheckUntil = currentTime + botRequestDelaySlow;
   Serial.println("Messages received");
   Serial.println(" - Qtd: " + String(numNewMessages));
 
@@ -407,6 +411,7 @@ void updateStatus(int status) {
 }
 
 void handleButtonPress() {
+  fastCheckUntil = 0;
   if (currentStatus == STATUS_DONE) {
     updateStatus(STATUS_OK);
   } else if (currentAlarm == 2) {
@@ -478,8 +483,10 @@ void checkButtonPress() {
 }
 
 void checkTelegram() {
-  if (now() > lastTimeBotRan + botRequestDelay)
-    getMsg();
+  // if we are still on fastcheck time, use the fast delay, else, use slow delay
+  if ((currentTime < fastCheckUntil && currentTime > lastTimeBotRan + botRequestDelayFast) ||
+      currentTime > lastTimeBotRan + botRequestDelaySlow)
+      getMsg();
 }
 
 // =========================
