@@ -8,8 +8,8 @@
 
 // TODO
 //  - [X] NTP num arquivo próprio
-//  - [ ] Usar EEPROM para salvar os dados de cfg do horário, usar valores em minutos ao invés do atual
-//  - [ ] Usar o telegram para definir os dados de cfg de horário
+//  - [X] Usar EEPROM para salvar os dados de cfg do horário, usar valores em minutos ao invés do atual
+//  - [X] Usar o telegram para definir os dados de cfg de horário
 //  - [ ] Aumentar o intervalo de comm com telegram, mas quando tiver interação com telegram, diminuir o intervalo para 5s por ~ 1m
 //  - [ ] Ajustar outras cfgs para serem também parametrizadas/salvas na eeprom (e.g. snooze dos avisos, tempo de checagem do telegram, etc)
 //  - [X] Ajustar para poder definir e.g. +30 ao invés de um horário
@@ -190,7 +190,7 @@ void handleNewMessages(int numNewMessages) {
 
     Serial.println(" - Txt: " + text);
 
-    if (text == "/start") {
+    if (text == "/start" || text == "/help") {
       String welcome = "👋 Olá, " + from_name + ", eu sou o Frankie!\n";
       welcome += "Estou aqui para te ajudar a lembrar de tomar os seus remédios, para isso você pode usar os comandos abaixo:\n\n";
       welcome += "/status para ter ver o status atual  \n";
@@ -220,7 +220,6 @@ void handleNewMessages(int numNewMessages) {
       String status = currentStatusText() + "\n\n";
       status += genAlarmTable() + "\n";
       status += "Horário atual: " + currentTimeFormatted();
-      status += "\n" + String(EEPROM.length());
       sendMsg(status);
     }
 
@@ -249,6 +248,7 @@ void handleNewMessages(int numNewMessages) {
         alarm.type = TYPE_RELATIVE;
         alarm.minutes = text.substring(1).toInt();
         alarms[index] = alarm;
+        save(index);
         sendMsg("✅ Alarme " + String(index + 1) + " definido para +" + alarm.minutes);
       } else {
         alarm.type = TYPE_ABSOLUTE;
@@ -267,6 +267,7 @@ void handleNewMessages(int numNewMessages) {
         }
         alarm.minutes = hour * 60 + minute;
         alarms[index] = alarm;
+        save(index);
         sendMsg("✅ Alarme " + String(index + 1) + " definido para " + formatMinutes(alarm.minutes));
       }
     }
@@ -419,6 +420,22 @@ void checkTelegram() {
     getMsg();
 }
 
+const int ADDR_ALARMS = 32;
+const int SIZE_OF_ALARM = 8;
+
+void save(int index) {
+  int offset = sizeof(alarms[0]);
+  Serial.println("Size of alarm:" + String(offset));
+  EEPROM.put(ADDR_ALARMS + index * SIZE_OF_ALARM, alarms[index]);
+  EEPROM.commit();
+}
+
+void load() {
+  for (int i = 0; i < 2; i++) {
+    EEPROM.get(ADDR_ALARMS + i * SIZE_OF_ALARM, alarms[i]);
+  }
+}
+
 void setup()
 {
   Serial.begin(9600);
@@ -441,7 +458,8 @@ void setup()
     client.setTrustAnchors(&cert); // Add root certificate for api.telegram.org
   #endif
 
-  EEPROM.begin();
+  EEPROM.begin(512);
+  load();
 
   // Connect to Wi-Fi
   Serial.print("Connecting to ");
