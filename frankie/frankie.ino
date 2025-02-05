@@ -133,8 +133,15 @@ alarmData alarms[3]{
 // state control
 int currentStatus = STATUS_OK;        
 int currentAlarm = 0;                 // Which is the current alarm index (0-2)
-long lastAlert = 0;                   // When was the last alert executed in millis
-int lastCheck = 0;                    // When was the last check made, in minutes
+long lastAlert = 0;                   // When was the last alert sent in seconds (now())
+                                      // Used to calculate if we can send new messages while status is LATE
+
+int lastCheck = 0;                    // When was the last check made, in minutes Has two uses: 
+                                      // 1. Determine next alarm for relative alarms
+                                      // 2. Determine wether we are still on the "same day", when
+                                      // lastCheck > currentTime. Last Check is resetted every time we
+                                      // cycle from DONE to OK
+
 time_t currentTime = 0;               // Holds the current time of execution, updated at each loop
 
 // Métodos do display
