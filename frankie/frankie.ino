@@ -91,6 +91,14 @@ long lastDebounceTime = 0;  // the last time the output pin was toggled
 long debounceDelay = 10;    // the debounce time; increase if the output flickers
 
 // =========================
+// EEPROM
+// =========================
+
+const int ADDR_CURRENT = 8;
+const int ADDR_ALARMS = 32;
+const int SIZE_OF_ALARM = 8;
+
+// =========================
 // LÓGICA DO FRANKIE
 // =========================
 
@@ -248,7 +256,7 @@ void handleNewMessages(int numNewMessages) {
         alarm.type = TYPE_RELATIVE;
         alarm.minutes = text.substring(1).toInt();
         alarms[index] = alarm;
-        save(index);
+        saveAlarms(index);
         sendMsg("✅ Alarme " + String(index + 1) + " definido para +" + alarm.minutes);
       } else {
         alarm.type = TYPE_ABSOLUTE;
@@ -267,7 +275,7 @@ void handleNewMessages(int numNewMessages) {
         }
         alarm.minutes = hour * 60 + minute;
         alarms[index] = alarm;
-        save(index);
+        saveAlarms(index);
         sendMsg("✅ Alarme " + String(index + 1) + " definido para " + formatMinutes(alarm.minutes));
       }
     }
@@ -356,10 +364,12 @@ void handleButtonPress() {
   if (currentStatus == STATUS_DONE) {
     currentAlarm = 0;
     updateStatus(STATUS_OK);
+    saveCurrentAlarm();
   } else if (currentAlarm == 2) {
     updateStatus(STATUS_DONE);
   } else {
     currentAlarm++;
+    saveCurrentAlarm();
   }
 
   dirty = true;
@@ -420,10 +430,14 @@ void checkTelegram() {
     getMsg();
 }
 
-const int ADDR_ALARMS = 32;
-const int SIZE_OF_ALARM = 8;
+void saveCurrentAlarm() {
+  if (EEPROM.read(ADDR_CURRENT) != currentAlarm) {
+    EEPROM.put(ADDR_CURRENT, currentAlarm);
+    EEPROM.commit();
+  }
+}
 
-void save(int index) {
+void saveAlarms(int index) {
   int offset = sizeof(alarms[0]);
   Serial.println("Size of alarm:" + String(offset));
   EEPROM.put(ADDR_ALARMS + index * SIZE_OF_ALARM, alarms[index]);
