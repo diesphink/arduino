@@ -102,6 +102,8 @@ const int SIZE_OF_ALARM = 8;
 // LÓGICA DO FRANKIE
 // =========================
 
+bool debug = false;
+
 // consts
 const unsigned int STATUS_OK = 0;
 const unsigned int STATUS_DONE = 1;
@@ -208,6 +210,8 @@ void handleNewMessages(int numNewMessages) {
       welcome += "Qualquer outro texto recebido indicará pressionamento do botão";
       sendMsg(welcome);
 
+    } else if (text == "/debug") {
+      debug = !debug;
     } else if (text == "/status") {
       String status = currentStatusText() + "\n\n";
       status += genAlarmTable() + "\n";
@@ -308,6 +312,9 @@ String currentAlarmFormatted() {
 String formatMinutes(int minutes) {
   int h = minutes/60;
   int m = minutes - h * 60;
+  if (!debug)
+    h = h % 24;
+
   return leftPad(h) + "h" + leftPad(m);
 }
 
