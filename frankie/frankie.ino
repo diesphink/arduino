@@ -19,19 +19,46 @@
 #include <Wire.h>
 #include "SSD1306Wire.h" // and ESP32 OLED Driver for SSD1306 displays by ThingPulse: https://github.com/ThingPulse/esp8266-oled-ssd1306
  
-#include <WiFiUdp.h>
-#ifdef ESP32
-  #include <WiFi.h>
-#else
+/* 
+  Set true if you want use external library for SSL connection instead ESP32@WiFiClientSecure 
+  For example https://github.com/OPEnSLab-OSU/SSLClient/ is very efficient BearSSL library.
+  You can use AsyncTelegram2 even with other MCUs or transport layer (ex. Ethernet)
+  With SSLClient, be sure "certificates.h" file is present in sketch folder
+*/ 
+#define USE_CLIENTSSL true  
+
+#include <AsyncTelegram2.h>
+
+// Timezone definition
+#include <time.h>
+#define MYTZ "CET-1CEST,M3.5.0,M10.5.0/3"
+
+#ifdef ESP8266
   #include <ESP8266WiFi.h>
+  BearSSL::WiFiClientSecure client;
+  BearSSL::Session   session;
+  BearSSL::X509List  certificate(telegram_cert);
+  
+#elif defined(ESP32)
+  #include <WiFi.h>
+  #include <WiFiClient.h>
+  #if USE_CLIENTSSL
+    #include <SSLClient.h>  
+    #include "tg_certificate.h"
+    WiFiClient base_client;
+    SSLClient client(base_client, TAs, (size_t)TAs_NUM, A0, 1, SSLClient::SSL_ERROR);
+  #else
+    #include <WiFiClientSecure.h>
+    WiFiClientSecure client;  
+  #endif
 #endif
-#include <WiFiClientSecure.h>
-#include <UniversalTelegramBot.h>   // Universal Telegram Bot Library written by Brian Lough: https://github.com/witnessmenow/Universal-Arduino-Telegram-Bot
-#include <ArduinoJson.h>
+
 #include <EEPROM.h>
 #include <TimeLib.h> // Time by miguel Morgolis
 
 #include "images.h"
+
+
 
 // =========================
 // SECRETS
@@ -53,19 +80,8 @@
 // TELEGRAM
 // =========================
 
-WiFiClientSecure client;
-
-#ifdef ESP8266
-  X509List cert(TELEGRAM_CERTIFICATE_ROOT);
-#endif
-
-UniversalTelegramBot bot(BOTtoken, client);
-
-int botRequestDelayFast = 5;
-int botRequestDelaySlow = 60;
-unsigned long lastTimeBotRan;
-unsigned long fastCheckUntil;
-String lastChatId = CHAT_ID_DIEGO;
+AsyncTelegram2 bot(client);
+int64_t defaultChatId = CHAT_ID_MA;
 
 // =========================
 // DISPLAY
@@ -149,141 +165,114 @@ time_t currentTime = 0;               // Holds the current time of execution, up
 // =========================
 // TELEGRAM FUNCTIONS
 // =========================
-
 void sendMsg(String text) {
-  fastCheckUntil = currentTime + botRequestDelaySlow;
-  show_display("-- rede --", "-> msg", false);
-
-  Serial.println("Sending message: " + text);
-  bot.sendMessage(lastChatId, text);
-  display_dirty = true;
+  sendMsg(defaultChatId, text);
 }
 
-void getMsg() {
-  show_display("-- rede --", "msgs?", false);
-
-  Serial.println("Checking telegram for messages");
-  int numNewMessages = bot.getUpdates(bot.last_message_received + 1);
-
-  while(numNewMessages) {
-    handleNewMessages(numNewMessages);
-    numNewMessages = bot.getUpdates(bot.last_message_received + 1);
-  }
-  lastTimeBotRan = now();
-
+void sendMsg(int64_t chatid, String text) {
+  Serial.println("Sending message: " + text);
+  bot.sendTo(chatid, text);
   display_dirty = true;
-  sendMsg("Teste");
 }
 
 // Handle what happens when you receive new messages
-void handleNewMessages(int numNewMessages) {
-  fastCheckUntil = currentTime + botRequestDelaySlow;
+void handleNewMessage(TBMessage msg) {
   Serial.println("Messages received");
-  Serial.println(" - Qtd: " + String(numNewMessages));
 
-  for (int i=0; i<numNewMessages; i++) {
-    // Chat id of the requester
-    String chat_id = String(bot.messages[i].chat_id);
-    if (chat_id != CHAT_ID_MA && chat_id != CHAT_ID_DIEGO){
-      show_display("-- rede --", "-> msg", false);
-      String text = "🚫 Usuário não autorizado";
-      Serial.println("Sending message: " + text);
-      bot.sendMessage(chat_id, text);
-      display_dirty = true;
-      continue;
-    }
+  // Allow only mine and ma's
+  if (msg.chatId != CHAT_ID_MA && msg.chatId != CHAT_ID_DIEGO){
+    sendMsg(msg.chatId, "🚫 Usuário não autorizado");
+    return;
+  }
 
-    lastChatId = chat_id;
+  String text = msg.text;
+  String from_name = msg.sender.firstName;
+
+  Serial.println(" - Txt: " + text);
+
+  if (text == "/start" || text == "/help") {
+    String welcome = "👋 Olá, " + from_name + ", eu sou o Frankie!\n";
+    welcome += "Estou aqui para te ajudar a lembrar de tomar os seus remédios, para isso você pode usar os comandos abaixo:\n\n";
+    welcome += "/status para ver o status atual  \n";
+    welcome += "/btn para agir como se tivesse apertado o botão\n";
+    welcome += "/set {alarme} {valor} para definir um alarme, o valor pode ser relativo em minutos (e.g. +30) ou um horário (e.g. 10:30, 8h, 22h15)\n";
+    welcome += "\n";
+    welcome += "Qualquer outro texto recebido indicará pressionamento do botão";
+    sendMsg(msg.chatId, welcome);
+
+  } else if (text == "/debug") {
+    debug = !debug;
+
+  } else if (text.startsWith("/add")) {
+    long delta = text.substring(4).toInt() * 60;
+
+    setTime(now() + delta);
+    currentTime = now();
+    Serial.println("Delta: " + String(delta));
+    Serial.println("New date: " + String(year(now())) + "-" + String(month(now())) + "-" + String(day(now())) + " " + currentTimeFormatted());
+    checkStatus();
+    display_dirty = true;
+
+  } else if (text == "/status") {
+    String status = genStatusText() + "\n\n";
+    status += genAlarmTable() + "\n";
+    status += genTimeText();
+    sendMsg(msg.chatId, status);
+
+  } else if (text.startsWith("/set")) {
+    int index;
+    alarmData alarm = {0, 0};
+    text = text.substring(4);
+    text.trim();
     
-    String text = bot.messages[i].text;
-    String from_name = bot.messages[i].from_name;
+    index = text[0] - '0' - 1;
 
-    Serial.println(" - Txt: " + text);
-
-    if (text == "/start" || text == "/help") {
-      String welcome = "👋 Olá, " + from_name + ", eu sou o Frankie!\n";
-      welcome += "Estou aqui para te ajudar a lembrar de tomar os seus remédios, para isso você pode usar os comandos abaixo:\n\n";
-      welcome += "/status para ver o status atual  \n";
-      welcome += "/btn para agir como se tivesse apertado o botão\n";
-      welcome += "/set {alarme} {valor} para definir um alarme, o valor pode ser relativo em minutos (e.g. +30) ou um horário (e.g. 10:30, 8h, 22h15)\n";
-      welcome += "\n";
-      welcome += "Qualquer outro texto recebido indicará pressionamento do botão";
-      sendMsg(welcome);
-
-    } else if (text == "/debug") {
-      debug = !debug;
-
-    } else if (text.startsWith("/add")) {
-      long delta = text.substring(4).toInt() * 60;
-
-      setTime(now() + delta);
-      currentTime = now();
-      Serial.println("Delta: " + String(delta));
-      Serial.println("New date: " + String(year(now())) + "-" + String(month(now())) + "-" + String(day(now())) + " " + currentTimeFormatted());
-      checkStatus();
-      display_dirty = true;
-
-    } else if (text == "/status") {
-      String status = genStatusText() + "\n\n";
-      status += genAlarmTable() + "\n";
-      status += genTimeText();
-      sendMsg(status);
-
-    } else if (text.startsWith("/set")) {
-      int index;
-      alarmData alarm = {0, 0};
-      text = text.substring(4);
-      text.trim();
-      
-      index = text[0] - '0' - 1;
-
-      if (index < 0 || index > 2) {
-        sendMsg("🚫 Índice inválido para os alarmes (" + String(text[0])+ ")");
-        return;
-      }
-
-      text = text.substring(1);
-      text.trim();
-
-      if (text.length() == 0) {
-        sendMsg("🚫 Valor inválido para o alarme (" + text + ")");
-        return;
-      }
-
-      if (text[0] == '+') {
-        alarm.type = TYPE_RELATIVE;
-        alarm.minutes = text.substring(1).toInt();
-        alarms[index] = alarm;
-        saveAlarms(index);
-        sendMsg("✅ Alarme " + String(index + 1) + " definido para +" + alarm.minutes);
-      } else {
-        alarm.type = TYPE_ABSOLUTE;
-
-        int hour, minute;
-        int pos = text.indexOf(":");
-        if (pos == -1)
-          pos = text.indexOf("h");
-        
-        if (pos == -1) {
-          hour = text.toInt();
-          minute = 0;
-        } else {
-          hour = text.substring(0, pos).toInt();
-          minute = text.substring(pos+1, text.length()).toInt();
-        }
-        alarm.minutes = hour * 60 + minute;
-        alarms[index] = alarm;
-        saveAlarms(index);
-        sendMsg("✅ Alarme " + String(index + 1) + " definido para " + formatMinutes(alarm.minutes));
-      }
-
-    } else {
-      //  also same for if (text == "/btn") {
-      handleButtonPress();
-      checkStatus();
-      sendMsg(genStatusText());
-
+    if (index < 0 || index > 2) {
+      sendMsg(msg.chatId, "🚫 Índice inválido para os alarmes (" + String(text[0])+ ")");
+      return;
     }
+
+    text = text.substring(1);
+    text.trim();
+
+    if (text.length() == 0) {
+      sendMsg(msg.chatId, "🚫 Valor inválido para o alarme (" + text + ")");
+      return;
+    }
+
+    if (text[0] == '+') {
+      alarm.type = TYPE_RELATIVE;
+      alarm.minutes = text.substring(1).toInt();
+      alarms[index] = alarm;
+      saveAlarms(index);
+      sendMsg(msg.chatId, "✅ Alarme " + String(index + 1) + " definido para +" + alarm.minutes);
+    } else {
+      alarm.type = TYPE_ABSOLUTE;
+
+      int hour, minute;
+      int pos = text.indexOf(":");
+      if (pos == -1)
+        pos = text.indexOf("h");
+      
+      if (pos == -1) {
+        hour = text.toInt();
+        minute = 0;
+      } else {
+        hour = text.substring(0, pos).toInt();
+        minute = text.substring(pos+1, text.length()).toInt();
+      }
+      alarm.minutes = hour * 60 + minute;
+      alarms[index] = alarm;
+      saveAlarms(index);
+      sendMsg(msg.chatId, "✅ Alarme " + String(index + 1) + " definido para " + formatMinutes(alarm.minutes));
+    }
+
+  } else {
+    //  also same for if (text == "/btn") {
+    handleButtonPress();
+    checkStatus();
+    sendMsg(msg.chatId, genStatusText());
+
   }
   Serial.println("");
 }
@@ -422,7 +411,6 @@ void updateStatus(int status) {
 }
 
 void handleButtonPress() {
-  fastCheckUntil = 0;
   if (currentStatus == STATUS_DONE) {
     updateStatus(STATUS_OK);
   } else if (currentAlarm == 2) {
@@ -495,10 +483,9 @@ void checkButtonPress() {
 }
 
 void checkTelegram() {
-  // if we are still on fastcheck time, use the fast delay, else, use slow delay
-  if ((currentTime < fastCheckUntil && currentTime > lastTimeBotRan + botRequestDelayFast) ||
-      currentTime > lastTimeBotRan + botRequestDelaySlow)
-      getMsg();
+  TBMessage msg;
+  while (bot.getNewMessage(msg))
+    handleNewMessage(msg);
 }
 
 // =========================
@@ -553,32 +540,47 @@ void setup()
   display.setFont(ArialMT_Plain_10);
   show_display("Inicializando...", true);
 
-  #ifdef ESP8266
-    configTime(0, 0, "pool.ntp.org");      // get UTC time via NTP
-    client.setTrustAnchors(&cert);         // Add root certificate for api.telegram.org
-  #endif
-
   EEPROM.begin(512);
+  delay(5000);
   load();
 
   // Connect to Wi-Fi
   Serial.print("Connecting to ");
   Serial.println(ssid);
+  WiFi.mode(WIFI_STA);
   WiFi.begin(ssid, pass);
-  
-  #ifdef ESP32
-    client.setCACert(TELEGRAM_CERTIFICATE_ROOT); // Add root certificate for api.telegram.org
-  #endif
 
   while (WiFi.status() != WL_CONNECTED) {
-    delay(500);
     Serial.print(".");
+    delay(500);
   }
 
   Serial.print("IP number assigned by DHCP is ");
   Serial.println(WiFi.localIP());
 
-  setupNTP();
+#ifdef ESP8266
+  // Sync time with NTP, to check properly Telegram certificate
+  configTime(MYTZ, "time.google.com", "time.windows.com", "pool.ntp.org");
+  //Set certficate, session and some other base client properies
+  client.setSession(&session);
+  client.setTrustAnchors(&certificate);
+  client.setBufferSizes(1024, 1024);
+#elif defined(ESP32)
+  // Sync time with NTP
+  configTzTime(MYTZ, "time.google.com", "time.windows.com", "pool.ntp.org");
+  #if USE_CLIENTSSL == false
+    client.setCACert(telegram_cert);
+  #endif
+#endif
+  
+  // Set the Telegram bot properies
+  bot.setUpdateTime(2000);
+  bot.setTelegramToken(BOTtoken);
+
+  // Check if all things are ok
+  Serial.print("\nTest Telegram connection... ");
+  bot.begin() ? Serial.println("OK") : Serial.println("NOK");
+
   currentTime = now();
 
   sendMsg(genBootupText());
