@@ -65,6 +65,7 @@ int botRequestDelayFast = 5;
 int botRequestDelaySlow = 60;
 unsigned long lastTimeBotRan;
 unsigned long fastCheckUntil;
+String lastChatId = CHAT_ID_DIEGO;
 
 // =========================
 // DISPLAY
@@ -82,7 +83,7 @@ bool cfg_dirty = false;
 // =========================
 
 // button PIN
-const int buttonPin = D1;
+const int buttonPin = D0; // S3
 
 int buttonState;                  // the current reading from the input pin
 int lastButtonState = LOW;        // the previous reading from the input pin
@@ -154,7 +155,7 @@ void sendMsg(String text) {
   show_display("-- rede --", "-> msg", false);
 
   Serial.println("Sending message: " + text);
-  bot.sendMessage(CHAT_ID, text);
+  bot.sendMessage(lastChatId, text);
   display_dirty = true;
 }
 
@@ -171,6 +172,7 @@ void getMsg() {
   lastTimeBotRan = now();
 
   display_dirty = true;
+  sendMsg("Teste");
 }
 
 // Handle what happens when you receive new messages
@@ -182,7 +184,7 @@ void handleNewMessages(int numNewMessages) {
   for (int i=0; i<numNewMessages; i++) {
     // Chat id of the requester
     String chat_id = String(bot.messages[i].chat_id);
-    if (chat_id != CHAT_ID){
+    if (chat_id != CHAT_ID_MA && chat_id != CHAT_ID_DIEGO){
       show_display("-- rede --", "-> msg", false);
       String text = "🚫 Usuário não autorizado";
       Serial.println("Sending message: " + text);
@@ -190,6 +192,8 @@ void handleNewMessages(int numNewMessages) {
       display_dirty = true;
       continue;
     }
+
+    lastChatId = chat_id;
     
     String text = bot.messages[i].text;
     String from_name = bot.messages[i].from_name;

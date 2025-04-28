@@ -1,3 +1,10 @@
+// Link for code generation from image:
+// https://javl.github.io/image2cpp/
+
+// Code output format: Arduino code, single bitmap
+// Draw mode: Horizontal - 1 bit per pixel
+// [x] swap bits in byte
+
 const unsigned char epd_bitmap_mouse [] PROGMEM = {
 	// 'mouse2, 128x48px
 	0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0xfe, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0x7f, 
