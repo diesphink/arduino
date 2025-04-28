@@ -53,6 +53,9 @@
   #endif
 #endif
 
+// NTP
+#include <WiFiUdp.h>
+
 #include <EEPROM.h>
 #include <TimeLib.h> // Time by miguel Morgolis
 
@@ -517,6 +520,7 @@ void load() {
   for (int i = 0; i < 3; i++) {
     EEPROM.get(ADDR_ALARMS + i * SIZE_OF_ALARM, alarms[i]);
   }
+
 }
 
 // =========================
@@ -557,22 +561,24 @@ void setup()
 
   Serial.print("IP number assigned by DHCP is ");
   Serial.println(WiFi.localIP());
+  delay(500);
 
-#ifdef ESP8266
-  // Sync time with NTP, to check properly Telegram certificate
-  configTime(MYTZ, "time.google.com", "time.windows.com", "pool.ntp.org");
-  //Set certficate, session and some other base client properies
-  client.setSession(&session);
-  client.setTrustAnchors(&certificate);
-  client.setBufferSizes(1024, 1024);
-#elif defined(ESP32)
-  // Sync time with NTP
-  configTzTime(MYTZ, "time.google.com", "time.windows.com", "pool.ntp.org");
-  #if USE_CLIENTSSL == false
-    client.setCACert(telegram_cert);
+  #ifdef ESP8266
+    // Sync time with NTP, to check properly Telegram certificate
+    configTime(MYTZ, "time.google.com", "time.windows.com", "pool.ntp.org");
+    //Set certficate, session and some other base client properies
+    client.setSession(&session);
+    client.setTrustAnchors(&certificate);
+    client.setBufferSizes(1024, 1024);
+  #elif defined(ESP32)
+    // Sync time with NTP
+    configTzTime(MYTZ, "time.google.com", "time.windows.com", "pool.ntp.org");
+    #if USE_CLIENTSSL == false
+      client.setCACert(telegram_cert);
+    #endif
   #endif
-#endif
-  
+    
+  setupNTP();
   // Set the Telegram bot properies
   bot.setUpdateTime(2000);
   bot.setTelegramToken(BOTtoken);
@@ -584,6 +590,10 @@ void setup()
   currentTime = now();
 
   sendMsg(genBootupText());
+
+  sendMsg(String(millis()));
+
+  
 }
 
 // =========================
